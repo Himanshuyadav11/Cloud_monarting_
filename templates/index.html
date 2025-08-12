@@ -2,122 +2,401 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Mini System Monitor</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus System Monitor</title>
+  
   <!-- Bootstrap -->
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
+  
   <!-- Plotly -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    body { background: #f6f8fb; }
-    .card { border-radius: .75rem; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
-    .gauge { height: 260px; }
-    .small-note { font-size: 0.85rem; color: #666; }
-    .alert-inline { margin: 0; padding: .6rem .9rem; border-radius: .5rem; }
-    .metric-value { font-weight: 700; font-size: 1.2rem; }
-    .badge-threshold { font-weight: 600; }
-    .footer-note { font-size: 0.82rem; color: #666; }
+    /* Enhanced Background with Gradient Animation */
+    body {
+        background: linear-gradient(135deg, #0a0a1a, #1a1a2e, #2d2d4e);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: #e0e0ff;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+    
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Floating Particles Effect */
+    .particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }
+    
+    .particle {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(0, 255, 224, 0.15);
+        box-shadow: 0 0 15px rgba(0, 255, 224, 0.3);
+        animation: float 15s infinite linear;
+    }
+    
+    @keyframes float {
+        0% { transform: translateY(0) translateX(0); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-100vh) translateX(100px); opacity: 0; }
+    }
+
+    /* Glass Morphism Card Design */
+    .card {
+        background: rgba(30, 30, 50, 0.25);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2),
+                    0 0 20px rgba(0, 150, 255, 0.1) inset;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .card::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #00ffe0, #007bff, #9400d3, #00ffe0);
+        background-size: 400% 400%;
+        z-index: -1;
+        border-radius: 18px;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        animation: gradient-shift 8s ease infinite;
+    }
+    
+    .card:hover::before {
+        opacity: 0.5;
+    }
+    
+    .card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(0, 150, 255, 0.25),
+                    0 0 25px rgba(0, 200, 255, 0.2) inset;
+        border-color: rgba(0, 255, 255, 0.3);
+    }
+    
+    @keyframes gradient-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Gradient Header Text */
+    h2 {
+        background: linear-gradient(90deg, #00ffe0, #007bff, #9400d3);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        text-shadow: 0 0 15px rgba(0, 150, 255, 0.3);
+    }
+    
+    h6 {
+        font-weight: 600;
+        color: #a0f0ff;
+        letter-spacing: 0.3px;
+        margin-bottom: 1.2rem;
+    }
+
+    /* Gauge height */
+    .gauge {
+        height: 250px;
+    }
+
+    /* Text details */
+    .small-note {
+        font-size: 0.85rem;
+        color: #b0c0ff;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: #a0b0ff;
+        letter-spacing: 0.5px;
+    }
+
+    /* Alert style */
+    .alert-inline {
+        margin: 0;
+        padding: 0.9rem 1.2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        background: rgba(255, 50, 50, 0.2);
+        border: 1px solid rgba(255, 50, 50, 0.4);
+        color: #ff7070;
+        text-shadow: 0 0 5px rgba(255, 50, 50, 0.5);
+        box-shadow: 0 4px 15px rgba(255, 50, 50, 0.2);
+    }
+
+    /* Metric numbers */
+    .metric-value {
+        font-weight: 800;
+        font-size: 1.5rem;
+        color: #00ffe0;
+        text-shadow: 0 0 10px rgba(0, 255, 224, 0.4);
+        margin: 0.2rem 0;
+    }
+
+    /* Footer note */
+    .footer-note {
+        font-size: 0.82rem;
+        color: #8899dd;
+        padding: 10px 15px;
+        border-radius: 10px;
+        background: rgba(20, 20, 40, 0.4);
+    }
+
+    /* Animation for updated values */
+    .fade-in {
+        animation: fadeIn 0.4s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: scale(0.98); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    
+    /* Chart styling */
+    .js-plotly-plot {
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(20, 20, 40, 0.3) !important;
+    }
+    
+    /* Custom badge styling */
+    .badge-threshold {
+        font-weight: 600;
+        padding: 0.4rem 0.7rem;
+        border-radius: 8px;
+        background: rgba(255, 193, 7, 0.2);
+        border: 1px solid rgba(255, 193, 7, 0.4);
+        color: #ffc107;
+    }
+    
+    /* Status indicator */
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .status-active {
+        background: #00ff9d;
+        box-shadow: 0 0 8px #00ff9d;
+    }
+    
+    /* Navigation bar */
+    .navbar {
+        background: rgba(15, 15, 35, 0.5);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        padding: 1.2rem 2rem;
+    }
+    
+    /* Custom buttons */
+    .btn-glass {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #e0e0ff;
+        border-radius: 8px;
+        padding: 0.5rem 1.2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-glass:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 150, 255, 0.2);
+    }
+    
+    /* Utility classes */
+    .text-gradient {
+        background: linear-gradient(90deg, #00ffe0, #007bff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .glow {
+        text-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+    }
   </style>
 </head>
 <body>
+  <!-- Animated Background Particles -->
+  <div class="particles" id="particles"></div>
+  
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1 d-flex align-items-center">
+        <i class="fas fa-server me-2 text-gradient"></i>
+        <span class="text-gradient glow">NEXUS</span>
+        <span class="ms-2 text-white">SYSTEM MONITOR</span>
+      </span>
+      <div class="d-flex">
+        <button class="btn btn-glass me-2"><i class="fas fa-cog me-1"></i> Settings</button>
+        <button class="btn btn-glass"><i class="fas fa-history me-1"></i> History</button>
+      </div>
+    </div>
+  </nav>
+
   <div class="container py-4">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="mb-0">System Monitoring Dashboard</h2>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h2 class="mb-0">System Performance Dashboard</h2>
       <div class="small-note text-end">
-        <div>Auto-refresh: <span id="interval-label"></span>s</div>
-        <div class="text-muted">{{ system_info.platform }} • Host: {{ system_info.hostname }}</div>
+        <div class="d-flex align-items-center justify-content-end">
+          <span class="status-indicator status-active"></span>
+          <span>Live Monitoring Active</span>
+        </div>
+        <div class="mt-1">Auto-refresh: <span class="text-gradient fw-bold" id="interval-label"></span>s</div>
+        <div>{{ system_info.platform }} • Host: {{ system_info.hostname }}</div>
       </div>
     </div>
 
-    <div id="alert-area"></div>
+    <div id="alert-area" class="mb-4"></div>
 
-    <div class="row g-3">
+    <div class="row g-4">
       <div class="col-lg-4 col-md-6">
         <div class="card p-3">
-          <h6>CPU</h6>
+          <div class="d-flex align-items-center">
+            <i class="fas fa-microchip fa-lg me-2 text-info"></i>
+            <h6 class="mb-0">CPU Utilization</h6>
+          </div>
           <div id="cpu-gauge" class="gauge"></div>
-          <div class="d-flex justify-content-between mt-2">
-            <div class="small-note">Core Count: <span id="core-count"></span></div>
-            <div class="small-note">Load Avg: <span id="load-avg"></span></div>
+          <div class="d-flex justify-content-between mt-3">
+            <div class="small-note"><i class="fas fa-microchip me-1"></i> Cores: <span id="core-count"></span></div>
+            <div class="small-note"><i class="fas fa-tachometer-alt me-1"></i> Load: <span id="load-avg"></span></div>
           </div>
         </div>
       </div>
 
       <div class="col-lg-4 col-md-6">
         <div class="card p-3">
-          <h6>Memory</h6>
+          <div class="d-flex align-items-center">
+            <i class="fas fa-memory fa-lg me-2 text-warning"></i>
+            <h6 class="mb-0">Memory Usage</h6>
+          </div>
           <div id="mem-gauge" class="gauge"></div>
-          <div class="d-flex justify-content-between mt-2">
-            <div class="small-note">Used: <span id="mem-used"></span></div>
-            <div class="small-note">Available: <span id="mem-available"></span></div>
+          <div class="d-flex justify-content-between mt-3">
+            <div class="small-note"><i class="fas fa-arrow-up me-1"></i> Used: <span id="mem-used"></span></div>
+            <div class="small-note"><i class="fas fa-arrow-down me-1"></i> Available: <span id="mem-available"></span></div>
           </div>
         </div>
       </div>
 
       <div class="col-lg-4 col-md-12">
         <div class="card p-3">
-          <h6>Disk</h6>
+          <div class="d-flex align-items-center">
+            <i class="fas fa-hdd fa-lg me-2 text-danger"></i>
+            <h6 class="mb-0">Disk Storage</h6>
+          </div>
           <div id="disk-gauge" class="gauge"></div>
-          <div class="d-flex justify-content-between mt-2">
-            <div class="small-note">Mount: /</div>
-            <div class="small-note">File systems and usage shown below</div>
+          <div class="d-flex justify-content-between mt-3">
+            <div class="small-note"><i class="fas fa-folder me-1"></i> Mount: /</div>
+            <div class="small-note"><i class="fas fa-info-circle me-1"></i> File systems below</div>
           </div>
         </div>
       </div>
 
       <div class="col-12">
         <div class="card p-3">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <h6 class="mb-0">Trends (last samples)</h6>
-            <div class="small-note">Updated: <span id="last-updated">—</span></div>
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-chart-line fa-lg me-2 text-success"></i>
+              <h6 class="mb-0">Performance Trends</h6>
+            </div>
+            <div class="small-note"><i class="fas fa-sync-alt me-1"></i> Updated: <span id="last-updated">—</span></div>
           </div>
           <div id="trend-cpu" style="height:260px;"></div>
-          <div id="trend-mem" style="height:180px; margin-top:12px;"></div>
+          <div id="trend-mem" style="height:180px; margin-top:20px;"></div>
         </div>
       </div>
 
       <div class="col-lg-6">
         <div class="card p-3">
-          <h6>Network</h6>
+          <div class="d-flex align-items-center mb-3">
+            <i class="fas fa-network-wired fa-lg me-2 text-primary"></i>
+            <h6 class="mb-0">Network Activity</h6>
+          </div>
           <div class="row">
             <div class="col-6">
-              <div>Bytes Sent</div>
-              <div class="metric-value" id="net-sent">—</div>
+              <div class="metric-label"><i class="fas fa-upload me-1"></i> Bytes Sent</div>
+              <div class="metric-value fade-in" id="net-sent">—</div>
             </div>
             <div class="col-6 text-end">
-              <div>Bytes Received</div>
-              <div class="metric-value" id="net-recv">—</div>
+              <div class="metric-label"><i class="fas fa-download me-1"></i> Bytes Received</div>
+              <div class="metric-value fade-in" id="net-recv">—</div>
             </div>
           </div>
-          <div id="network-trend" style="height:160px; margin-top:12px"></div>
+          <div id="network-trend" style="height:160px; margin-top:20px"></div>
         </div>
       </div>
 
       <div class="col-lg-6">
         <div class="card p-3">
-          <h6>System Info</h6>
-          <div class="row">
-            <div class="col-6 small-note">Uptime</div>
+          <div class="d-flex align-items-center mb-3">
+            <i class="fas fa-info-circle fa-lg me-2 text-info"></i>
+            <h6 class="mb-0">System Information</h6>
+          </div>
+          <div class="row mb-3">
+            <div class="col-6 small-note"><i class="fas fa-clock me-1"></i> Uptime</div>
             <div class="col-6 text-end" id="uptime">—</div>
 
-            <div class="col-6 small-note">Processes</div>
-            <div class="col-6 text-end" id="proc-count">—</div>
+            <div class="col-6 small-note mt-2"><i class="fas fa-tasks me-1"></i> Processes</div>
+            <div class="col-6 text-end mt-2" id="proc-count">—</div>
 
-            <div class="col-6 small-note">Prometheus</div>
-            <div class="col-6 text-end small-note"><a href="/metrics_prometheus" target="_blank">/metrics_prometheus</a></div>
+            <div class="col-6 small-note mt-2"><i class="fas fa-chart-bar me-1"></i> Prometheus</div>
+            <div class="col-6 text-end small-note mt-2">
+              <a href="/metrics_prometheus" target="_blank" class="text-decoration-none text-info">
+                <i class="fas fa-external-link-alt me-1"></i>/metrics_prometheus
+              </a>
+            </div>
           </div>
-          <div class="mt-3 footer-note">
-            <div>Note: This dashboard samples every <span id="interval-badge"></span>s in memory (no DB). Use a proper metrics stack for long-term storage.</div>
-            <div class="mt-2">Thresholds: CPU <span class="badge bg-warning badge-threshold">{{ alert_cpu }}%</span>, Memory <span class="badge bg-warning badge-threshold">{{ alert_mem }}%</span></div>
+          <div class="footer-note">
+            <div><i class="fas fa-lightbulb me-1"></i> This dashboard samples every <span class="fw-bold" id="interval-badge"></span>s in memory</div>
+            <div class="mt-2"><i class="fas fa-exclamation-triangle me-1"></i> Thresholds: CPU <span class="badge badge-threshold">{{ alert_cpu }}%</span>, Memory <span class="badge badge-threshold">{{ alert_mem }}%</span></div>
           </div>
         </div>
       </div>
     </div>
 
-    <footer class="mt-4 small text-muted">Built with Flask + Plotly • <span id="server-time">—</span></footer>
+    <footer class="mt-4 text-center small footer-note">
+      <div class="d-flex justify-content-center align-items-center">
+        <span>Built with Flask + Plotly</span>
+        <span class="mx-2">•</span>
+        <span><i class="fas fa-clock me-1"></i> <span id="server-time">—</span></span>
+      </div>
+    </footer>
   </div>
 
 <script>
@@ -126,6 +405,35 @@ const ALERT_CPU = {{ alert_cpu }};
 const ALERT_MEM = {{ alert_mem }};
 document.getElementById('interval-label').textContent = SAMPLE_INTERVAL;
 document.getElementById('interval-badge').textContent = SAMPLE_INTERVAL;
+
+// Create animated particles
+function createParticles() {
+  const container = document.getElementById('particles');
+  const particleCount = 30;
+  
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.classList.add('particle');
+    
+    // Random size
+    const size = Math.random() * 5 + 2;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+    
+    // Random position
+    particle.style.left = `${Math.random() * 100}%`;
+    particle.style.top = `${Math.random() * 100}%`;
+    
+    // Random animation duration
+    const duration = Math.random() * 20 + 10;
+    particle.style.animationDuration = `${duration}s`;
+    
+    // Random animation delay
+    particle.style.animationDelay = `${Math.random() * 5}s`;
+    
+    container.appendChild(particle);
+  }
+}
 
 let cpuGaugePlot, memGaugePlot, diskGaugePlot;
 let cpuTrace, memTrace, netSentTrace, netRecvTrace;
@@ -146,24 +454,71 @@ function buildGauges() {
     value: value,
     domain: { x: [0,1], y: [0,1] },
     gauge: {
-      axis: { range: [0, 100] },
+      axis: { 
+        range: [0, 100],
+        tickwidth: 1,
+        tickcolor: 'rgba(200, 200, 255, 0.5)'
+      },
+      bar: { 
+        color: '#00ffe0',
+        thickness: 0.25
+      },
       steps: [
-        { range: [0, 50], color: "#d9f0a3" },
-        { range: [50, 85], color: "#ffeb84" },
-        { range: [85, 100], color: "#ff9b9b" }
+        { range: [0, 50], color: "rgba(0, 200, 150, 0.3)" },
+        { range: [50, 85], color: "rgba(255, 193, 7, 0.3)" },
+        { range: [85, 100], color: "rgba(255, 80, 80, 0.3)" }
       ],
       threshold: {
-        line: { color: "red", width: 4 },
+        line: { color: "#ff4d4d", width: 4 },
         thickness: 0.75,
         value: value
       }
     },
-    title: { text: title, font: { size: 14 } }
+    title: { 
+      text: title, 
+      font: { 
+        size: 16,
+        color: '#c0e0ff'
+      } 
+    },
+    number: {
+      font: {
+        size: 28,
+        color: '#ffffff'
+      },
+      suffix: '%'
+    }
   });
 
-  cpuGaugePlot = { data: [ commonGauge(0, "CPU %") ], layout: { margin: {t:20,b:20} } };
-  memGaugePlot = { data: [ commonGauge(0, "Memory %") ], layout: { margin: {t:20,b:20} } };
-  diskGaugePlot = { data: [ commonGauge(0, "Disk %") ], layout: { margin: {t:20,b:20} } };
+  cpuGaugePlot = { 
+    data: [ commonGauge(0, "CPU UTILIZATION") ], 
+    layout: { 
+      margin: {t: 40, b: 30, l: 40, r: 40},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#e0e0ff'}
+    } 
+  };
+  
+  memGaugePlot = { 
+    data: [ commonGauge(0, "MEMORY USAGE") ], 
+    layout: { 
+      margin: {t: 40, b: 30, l: 40, r: 40},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#e0e0ff'}
+    } 
+  };
+  
+  diskGaugePlot = { 
+    data: [ commonGauge(0, "DISK USAGE") ], 
+    layout: { 
+      margin: {t: 40, b: 30, l: 40, r: 40},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#e0e0ff'}
+    } 
+  };
 
   Plotly.newPlot('cpu-gauge', cpuGaugePlot.data, cpuGaugePlot.layout, {displayModeBar: false});
   Plotly.newPlot('mem-gauge', memGaugePlot.data, memGaugePlot.layout, {displayModeBar: false});
@@ -171,14 +526,79 @@ function buildGauges() {
 }
 
 function buildTrends() {
-  cpuTrace = { x: [], y: [], name: 'CPU %', fill: 'tozeroy', type: 'scatter' };
-  memTrace = { x: [], y: [], name: 'Memory %', fill: 'tozeroy', type: 'scatter' };
-  netSentTrace = { x: [], y: [], name: 'Sent (bytes)', type: 'scatter', yaxis: 'y' };
-  netRecvTrace = { x: [], y: [], name: 'Recv (bytes)', type: 'scatter', yaxis: 'y' };
+  const commonLayout = {
+    margin: {t: 20, b: 40, l: 60, r: 30},
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: {color: '#e0e0ff'},
+    xaxis: {
+      showgrid: false,
+      zeroline: false,
+      showline: false
+    },
+    yaxis: {
+      gridcolor: 'rgba(255, 255, 255, 0.1)',
+      zeroline: false
+    },
+    legend: {
+      orientation: 'h',
+      x: 0.5,
+      xanchor: 'center',
+      y: 1.1,
+      bgcolor: 'rgba(30, 30, 50, 0.5)'
+    }
+  };
 
-  Plotly.newPlot('trend-cpu', [cpuTrace], { margin:{t:20,b:40}, yaxis:{range:[0,100]}, legend:{orientation:'h'} }, {displayModeBar:false});
-  Plotly.newPlot('trend-mem', [memTrace], { margin:{t:10,b:40}, yaxis:{range:[0,100]}, legend:{orientation:'h'} }, {displayModeBar:false});
-  Plotly.newPlot('network-trend', [netSentTrace, netRecvTrace], { margin:{t:10,b:40}, yaxis:{title:'bytes'} }, {displayModeBar:false});
+  cpuTrace = { 
+    x: [], 
+    y: [], 
+    name: 'CPU %', 
+    fill: 'tozeroy', 
+    type: 'scatter',
+    line: {color: '#00ffe0', width: 3},
+    fillcolor: 'rgba(0, 255, 224, 0.1)'
+  };
+  
+  memTrace = { 
+    x: [], 
+    y: [], 
+    name: 'Memory %', 
+    fill: 'tozeroy', 
+    type: 'scatter',
+    line: {color: '#ff9a3d', width: 3},
+    fillcolor: 'rgba(255, 154, 61, 0.1)'
+  };
+  
+  netSentTrace = { 
+    x: [], 
+    y: [], 
+    name: 'Sent', 
+    type: 'scatter', 
+    line: {color: '#007bff', width: 2.5}
+  };
+  
+  netRecvTrace = { 
+    x: [], 
+    y: [], 
+    name: 'Received', 
+    type: 'scatter', 
+    line: {color: '#9400d3', width: 2.5}
+  };
+
+  Plotly.newPlot('trend-cpu', [cpuTrace], { 
+    ...commonLayout, 
+    yaxis: {range: [0,100], title: 'CPU Utilization (%)'} 
+  }, {displayModeBar:false});
+  
+  Plotly.newPlot('trend-mem', [memTrace], { 
+    ...commonLayout, 
+    yaxis: {range: [0,100], title: 'Memory Usage (%)'} 
+  }, {displayModeBar:false});
+  
+  Plotly.newPlot('network-trend', [netSentTrace, netRecvTrace], { 
+    ...commonLayout, 
+    yaxis: {title: 'Bytes'}
+  }, {displayModeBar:false});
 }
 
 function updateGauges(latest) {
@@ -188,11 +608,11 @@ function updateGauges(latest) {
 }
 
 function updateSystemInfo(latest) {
-  document.getElementById('last-updated').textContent = new Date(latest.timestamp).toLocaleString();
+  document.getElementById('last-updated').textContent = new Date(latest.timestamp).toLocaleTimeString();
   document.getElementById('net-sent').textContent = niceBytes(latest.net_sent);
   document.getElementById('net-recv').textContent = niceBytes(latest.net_recv);
   document.getElementById('proc-count').textContent = latest.process_count;
-  document.getElementById('server-time').textContent = new Date().toLocaleString();
+  document.getElementById('server-time').textContent = new Date().toLocaleTimeString();
 
   // uptime formatting
   const s = latest.uptime_seconds;
@@ -203,6 +623,10 @@ function updateSystemInfo(latest) {
   // load average (if present)
   document.getElementById('load-avg').textContent = (latest.loadavg && latest.loadavg.length) ? latest.loadavg.join(', ') : 'N/A';
   document.getElementById('core-count').textContent = navigator.hardwareConcurrency || 'N/A';
+  
+  // Memory details
+  document.getElementById('mem-used').textContent = niceBytes(latest.mem_used);
+  document.getElementById('mem-available').textContent = niceBytes(latest.mem_available);
 }
 
 function checkAlerts(latest) {
@@ -212,7 +636,10 @@ function checkAlerts(latest) {
   if (latest.cpu_percent > ALERT_CPU) messages.push(`High CPU usage: ${latest.cpu_percent}%`);
   if (latest.mem_percent > ALERT_MEM) messages.push(`High Memory usage: ${latest.mem_percent}%`);
   if (messages.length) {
-    let html = `<div class="alert alert-danger alert-inline" role="alert"><strong>Alert:</strong> ${messages.join(' • ')}</div>`;
+    let html = `<div class="alert alert-danger alert-inline d-flex align-items-center" role="alert">
+                  <i class="fas fa-exclamation-triangle fa-lg me-2"></i>
+                  <div><strong>System Alert:</strong> ${messages.join(' • ')}</div>
+                </div>`;
     area.innerHTML = html;
   }
 }
@@ -228,9 +655,9 @@ function integrateHistory(history) {
   netRecvTrace.x = history.timestamps;
   netRecvTrace.y = history.net_recv.map((n,i,arr) => (n === null?0:n));
 
-  Plotly.react('trend-cpu', [cpuTrace], { margin:{t:20,b:40}, yaxis:{range:[0,100]} }, {displayModeBar:false});
-  Plotly.react('trend-mem', [memTrace], { margin:{t:10,b:40}, yaxis:{range:[0,100]} }, {displayModeBar:false});
-  Plotly.react('network-trend', [netSentTrace, netRecvTrace], { margin:{t:10,b:40}, yaxis:{title:'bytes'} }, {displayModeBar:false});
+  Plotly.react('trend-cpu', [cpuTrace], { yaxis: {range: [0,100]} }, {displayModeBar:false});
+  Plotly.react('trend-mem', [memTrace], { yaxis: {range: [0,100]} }, {displayModeBar:false});
+  Plotly.react('network-trend', [netSentTrace, netRecvTrace], {}, {displayModeBar:false});
 }
 
 async function fetchAndUpdate() {
@@ -251,15 +678,20 @@ async function fetchAndUpdate() {
 }
 
 window.addEventListener('load', () => {
+  createParticles();
   buildGauges();
   buildTrends();
   // initial fetch
   fetchAndUpdate();
   // periodic updates
   setInterval(fetchAndUpdate, SAMPLE_INTERVAL * 1000);
+  
+  // Update server time every second
+  setInterval(() => {
+    document.getElementById('server-time').textContent = new Date().toLocaleTimeString();
+  }, 1000);
 });
 </script>
 
 </body>
 </html>
-
