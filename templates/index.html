@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mini System Monitor</title>
+
+  <!-- Bootstrap -->
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <style>
+    body { background: #f6f8fb; }
+    .card { border-radius: .75rem; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+    .gauge { height: 260px; }
+    .small-note { font-size: 0.85rem; color: #666; }
+    .alert-inline { margin: 0; padding: .6rem .9rem; border-radius: .5rem; }
+    .metric-value { font-weight: 700; font-size: 1.2rem; }
+    .badge-threshold { font-weight: 600; }
+    .footer-note { font-size: 0.82rem; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="mb-0">System Monitoring Dashboard</h2>
+      <div class="small-note text-end">
+        <div>Auto-refresh: <span id="interval-label"></span>s</div>
+        <div class="text-muted">{{ system_info.platform }} • Host: {{ system_info.hostname }}</div>
+      </div>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <div class="row g-3">
+      <div class="col-lg-4 col-md-6">
+        <div class="card p-3">
+          <h6>CPU</h6>
+          <div id="cpu-gauge" class="gauge"></div>
+          <div class="d-flex justify-content-between mt-2">
+            <div class="small-note">Core Count: <span id="core-count"></span></div>
+            <div class="small-note">Load Avg: <span id="load-avg"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6">
+        <div class="card p-3">
+          <h6>Memory</h6>
+          <div id="mem-gauge" class="gauge"></div>
+          <div class="d-flex justify-content-between mt-2">
+            <div class="small-note">Used: <span id="mem-used"></span></div>
+            <div class="small-note">Available: <span id="mem-available"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-12">
+        <div class="card p-3">
+          <h6>Disk</h6>
+          <div id="disk-gauge" class="gauge"></div>
+          <div class="d-flex justify-content-between mt-2">
+            <div class="small-note">Mount: /</div>
+            <div class="small-note">File systems and usage shown below</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="mb-0">Trends (last samples)</h6>
+            <div class="small-note">Updated: <span id="last-updated">—</span></div>
+          </div>
+          <div id="trend-cpu" style="height:260px;"></div>
+          <div id="trend-mem" style="height:180px; margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card p-3">
+          <h6>Network</h6>
+          <div class="row">
+            <div class="col-6">
+              <div>Bytes Sent</div>
+              <div class="metric-value" id="net-sent">—</div>
+            </div>
+            <div class="col-6 text-end">
+              <div>Bytes Received</div>
+              <div class="metric-value" id="net-recv">—</div>
+            </div>
+          </div>
+          <div id="network-trend" style="height:160px; margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card p-3">
+          <h6>System Info</h6>
+          <div class="row">
+            <div class="col-6 small-note">Uptime</div>
+            <div class="col-6 text-end" id="uptime">—</div>
+
+            <div class="col-6 small-note">Processes</div>
+            <div class="col-6 text-end" id="proc-count">—</div>
+
+            <div class="col-6 small-note">Prometheus</div>
+            <div class="col-6 text-end small-note"><a href="/metrics_prometheus" target="_blank">/metrics_prometheus</a></div>
+          </div>
+          <div class="mt-3 footer-note">
+            <div>Note: This dashboard samples every <span id="interval-badge"></span>s in memory (no DB). Use a proper metrics stack for long-term storage.</div>
+            <div class="mt-2">Thresholds: CPU <span class="badge bg-warning badge-threshold">{{ alert_cpu }}%</span>, Memory <span class="badge bg-warning badge-threshold">{{ alert_mem }}%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mt-4 small text-muted">Built with Flask + Plotly • <span id="server-time">—</span></footer>
+  </div>
+
+<script>
+const SAMPLE_INTERVAL = {{ sample_interval|tojson }};
+const ALERT_CPU = {{ alert_cpu }};
+const ALERT_MEM = {{ alert_mem }};
+document.getElementById('interval-label').textContent = SAMPLE_INTERVAL;
+document.getElementById('interval-badge').textContent = SAMPLE_INTERVAL;
+
+let cpuGaugePlot, memGaugePlot, diskGaugePlot;
+let cpuTrace, memTrace, netSentTrace, netRecvTrace;
+
+function niceBytes(n) {
+  if (n === null || n === undefined) return "—";
+  if (n === 0) return "0 B";
+  const units = ['B','KB','MB','GB','TB'];
+  let i = Math.floor(Math.log(n) / Math.log(1024));
+  if (i < 0) i = 0;
+  return (n / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
+}
+
+function buildGauges() {
+  const commonGauge = (value, title) => ({
+    type: "indicator",
+    mode: "gauge+number",
+    value: value,
+    domain: { x: [0,1], y: [0,1] },
+    gauge: {
+      axis: { range: [0, 100] },
+      steps: [
+        { range: [0, 50], color: "#d9f0a3" },
+        { range: [50, 85], color: "#ffeb84" },
+        { range: [85, 100], color: "#ff9b9b" }
+      ],
+      threshold: {
+        line: { color: "red", width: 4 },
+        thickness: 0.75,
+        value: value
+      }
+    },
+    title: { text: title, font: { size: 14 } }
+  });
+
+  cpuGaugePlot = { data: [ commonGauge(0, "CPU %") ], layout: { margin: {t:20,b:20} } };
+  memGaugePlot = { data: [ commonGauge(0, "Memory %") ], layout: { margin: {t:20,b:20} } };
+  diskGaugePlot = { data: [ commonGauge(0, "Disk %") ], layout: { margin: {t:20,b:20} } };
+
+  Plotly.newPlot('cpu-gauge', cpuGaugePlot.data, cpuGaugePlot.layout, {displayModeBar: false});
+  Plotly.newPlot('mem-gauge', memGaugePlot.data, memGaugePlot.layout, {displayModeBar: false});
+  Plotly.newPlot('disk-gauge', diskGaugePlot.data, diskGaugePlot.layout, {displayModeBar: false});
+}
+
+function buildTrends() {
+  cpuTrace = { x: [], y: [], name: 'CPU %', fill: 'tozeroy', type: 'scatter' };
+  memTrace = { x: [], y: [], name: 'Memory %', fill: 'tozeroy', type: 'scatter' };
+  netSentTrace = { x: [], y: [], name: 'Sent (bytes)', type: 'scatter', yaxis: 'y' };
+  netRecvTrace = { x: [], y: [], name: 'Recv (bytes)', type: 'scatter', yaxis: 'y' };
+
+  Plotly.newPlot('trend-cpu', [cpuTrace], { margin:{t:20,b:40}, yaxis:{range:[0,100]}, legend:{orientation:'h'} }, {displayModeBar:false});
+  Plotly.newPlot('trend-mem', [memTrace], { margin:{t:10,b:40}, yaxis:{range:[0,100]}, legend:{orientation:'h'} }, {displayModeBar:false});
+  Plotly.newPlot('network-trend', [netSentTrace, netRecvTrace], { margin:{t:10,b:40}, yaxis:{title:'bytes'} }, {displayModeBar:false});
+}
+
+function updateGauges(latest) {
+  Plotly.update('cpu-gauge', { value: [latest.cpu_percent] }, {}, 0);
+  Plotly.update('mem-gauge', { value: [latest.mem_percent] }, {}, 0);
+  Plotly.update('disk-gauge', { value: [latest.disk_percent] }, {}, 0);
+}
+
+function updateSystemInfo(latest) {
+  document.getElementById('last-updated').textContent = new Date(latest.timestamp).toLocaleString();
+  document.getElementById('net-sent').textContent = niceBytes(latest.net_sent);
+  document.getElementById('net-recv').textContent = niceBytes(latest.net_recv);
+  document.getElementById('proc-count').textContent = latest.process_count;
+  document.getElementById('server-time').textContent = new Date().toLocaleString();
+
+  // uptime formatting
+  const s = latest.uptime_seconds;
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  let upStr = (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+  document.getElementById('uptime').textContent = upStr;
+
+  // load average (if present)
+  document.getElementById('load-avg').textContent = (latest.loadavg && latest.loadavg.length) ? latest.loadavg.join(', ') : 'N/A';
+  document.getElementById('core-count').textContent = navigator.hardwareConcurrency || 'N/A';
+}
+
+function checkAlerts(latest) {
+  const area = document.getElementById('alert-area');
+  area.innerHTML = '';
+  let messages = [];
+  if (latest.cpu_percent > ALERT_CPU) messages.push(`High CPU usage: ${latest.cpu_percent}%`);
+  if (latest.mem_percent > ALERT_MEM) messages.push(`High Memory usage: ${latest.mem_percent}%`);
+  if (messages.length) {
+    let html = `<div class="alert alert-danger alert-inline" role="alert"><strong>Alert:</strong> ${messages.join(' • ')}</div>`;
+    area.innerHTML = html;
+  }
+}
+
+function integrateHistory(history) {
+  // replace traces
+  cpuTrace.x = history.timestamps;
+  cpuTrace.y = history.cpu;
+  memTrace.x = history.timestamps;
+  memTrace.y = history.mem;
+  netSentTrace.x = history.timestamps;
+  netSentTrace.y = history.net_sent.map((n,i,arr) => (n === null?0:n));
+  netRecvTrace.x = history.timestamps;
+  netRecvTrace.y = history.net_recv.map((n,i,arr) => (n === null?0:n));
+
+  Plotly.react('trend-cpu', [cpuTrace], { margin:{t:20,b:40}, yaxis:{range:[0,100]} }, {displayModeBar:false});
+  Plotly.react('trend-mem', [memTrace], { margin:{t:10,b:40}, yaxis:{range:[0,100]} }, {displayModeBar:false});
+  Plotly.react('network-trend', [netSentTrace, netRecvTrace], { margin:{t:10,b:40}, yaxis:{title:'bytes'} }, {displayModeBar:false});
+}
+
+async function fetchAndUpdate() {
+  try {
+    const r = await fetch('/metrics', { cache: 'no-store' });
+    if (!r.ok) throw new Error('Failed to fetch metrics');
+    const payload = await r.json();
+    const latest = payload.latest;
+    const history = payload.history || {};
+
+    updateGauges(latest);
+    updateSystemInfo(latest);
+    checkAlerts(latest);
+    integrateHistory(history);
+  } catch (err) {
+    console.error('Error updating metrics:', err);
+  }
+}
+
+window.addEventListener('load', () => {
+  buildGauges();
+  buildTrends();
+  // initial fetch
+  fetchAndUpdate();
+  // periodic updates
+  setInterval(fetchAndUpdate, SAMPLE_INTERVAL * 1000);
+});
+</script>
+
+</body>
+</html>
+
